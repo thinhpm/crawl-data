@@ -2,6 +2,7 @@ import requests
 import json
 from lxml import html
 from lxml import etree
+import csv
 
 
 class Core:
@@ -39,6 +40,22 @@ class Core:
 class BeddingLegend(Core):
     home_url = "https://beddinglegend.com/"
 
+    def export_csv(self, data, option="start"):
+        header = ["Handle", "Title", "Body (HTML)", "Vendor", "Type", "Tags", "Published", "Option1 Name", "Option1 Value", "Option2 Name", "Option2 Value", "Option3 Name", "Option3 Value", "Variant SKU", "Variant Grams", "Variant Inventory Tracker", "Variant Inventory Qty", "Variant Inventory Policy", "Variant Fulfillment Service", "Variant Price", "Variant Compare At Price", "Variant Requires Shipping", "Variant Taxable", "Variant Barcode", "Image Src", "Image Position", "Image Alt Text", "Gift Card", "SEO Title", "SEO Description", "Google Shopping / Google Product Category", "Google Shopping / Gender", "Google Shopping / Age Group", "Google Shopping / MPN", "Google Shopping / AdWords Grouping", "Google Shopping / AdWords Labels", "Google Shopping / Condition", "Google Shopping / Custom Product", "Google Shopping / Custom Label 0", "Google Shopping / Custom Label 1", "Google Shopping / Custom Label 2", "Google Shopping / Custom Label 3", "Google Shopping / Custom Label 4", "Variant Image", "Variant Weight Unit", "Variant Tax Code", "Cost per item"]
+        mode = 'w'
+
+        if option != "init":
+            mode = 'a+'
+
+        with open('file-datas.csv', mode=mode) as data_file:
+            file_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+            if option == "init":
+                file_writer.writerow(header)
+                return
+
+            file_writer.writerow(data)
+
     def get_list_category(self):
         list_category = []
         url = self.home_url
@@ -59,6 +76,17 @@ class BeddingLegend(Core):
                 })
 
         return list_category
+
+    def get_items(self, root):
+        products = root.xpath("//*[@id=\"theme-menu-pusher\"]/div[4]/div[1]/ul/li")
+        result = []
+
+        for item in products:
+            url = item.xpath("div/a/@href")[0]
+            price = item.xpath("span[3]/ins/span/text()")[0]
+            result.append([url, price])
+
+        return result
 
     def get_body_html(self, root):
         html = '<h3>Description</h3>'
@@ -99,7 +127,7 @@ class BeddingLegend(Core):
 
         return [option1_name, option1_value]
 
-    def get_detail_item(self, item_url, name_category):
+    def get_detail_item(self, item_url, price, name_category):
         results = []
         handle = ''
         title = ''
@@ -108,15 +136,10 @@ class BeddingLegend(Core):
         type_t = ''
         tags = name_category
         published = 'TRUE'
-        option1_name = ""
-        option1_value = []
-        option2_name = ""
-        option2_value = ""
-        option3_name = ""
-        option3_value = ""
 
         temp = item_url.split("/")
-        handle = temp[len(temp) - 1].replace("/", "")
+
+        handle = temp[len(temp) - 2].replace("/", "")
 
         root = self.my_request("GET", item_url, (), 'html')
 
@@ -126,6 +149,8 @@ class BeddingLegend(Core):
         option1 = root.xpath("//form/table/tbody/tr[1]")[0]
         option1_name, option1_value = self.get_option(option1)
 
+        option2_name, option2_value, option3_name, option3_value = '', '', '', ''
+
         if len(root.xpath("//form/table/tbody/tr[2]")) > 0:
             option2 = root.xpath("//form/table/tbody/tr[2]")[0]
             option2_name, option2_value = self.get_option(option2)
@@ -134,8 +159,53 @@ class BeddingLegend(Core):
             option3 = root.xpath("//form/table/tbody/tr[3]")[0]
             option3_name, option3_value = self.get_option(option3)
 
+        sku = root.xpath("//form/@data-product_id")[0]
+        # data_variations = root.xpath("//form/@data-product_variations")[0]
+        # data_variations = json.loads(data_variations)
+        variant_grams = '0'
+        variant_inventory_tracker = "shopify"
+        variant_inventory_qty = ""
+        variant_inventory_policy = ""
+        variant_fulfillment_service = ""
+        variant_price = price
+        variant_compare_at_price = ""
+        variant_requires_shipping = "TRUE"
+        variant_taxable = "FALSE"
+        variant_barcode = ""
+        image_src = root.xpath("//*[@id=\"gallery-image\"]/figure/@data-zoom")[0]
+        image_position = 1
+        image_alt_text = root.xpath("//*[@id=\"gallery-image\"]/figure/img/@alt")[0]
+        gift_card = "FALSE"
+        seo_title = ""
+        seo_description = ""
+        google_product_category = ""
+        gender = ""
+        age_group = ""
+        mpn = ""
+        adwords_grouping = ""
+        adwords_labels = ""
+        condition = ""
+        custom_product = ""
+        custom_label0 = ""
+        custom_label1 = ""
+        custom_label2 = ""
+        custom_label3 = ""
+        custom_label4 = ""
+        variant_image = ""
+        variant_weight_unit = "kg"
+        variant_tax_code = ""
+        cost_per_item = ""
 
-        return option2_value
+        results = [
+            handle, title, body_html, vendor, type_t, tags, published, option1_name, option1_value, option2_name, option2_value, option3_name, option3_value,
+            sku, variant_grams, variant_inventory_tracker, variant_inventory_qty, variant_inventory_policy, variant_fulfillment_service,
+            variant_price, variant_compare_at_price, variant_requires_shipping, variant_taxable, variant_barcode, image_src,
+            image_position, image_alt_text, gift_card, seo_title, seo_description, google_product_category, gender, age_group,
+            mpn, adwords_grouping, adwords_labels, condition, custom_product, custom_label0, custom_label1, custom_label2,
+            custom_label3, custom_label4, variant_image, variant_weight_unit, variant_tax_code, cost_per_item
+        ]
+
+        return results
 
     def get_list_item(self, category):
         url_category = category['url']
@@ -143,9 +213,10 @@ class BeddingLegend(Core):
 
         root = self.my_request("GET", url_category, (), 'html')
 
-        products = root.xpath("//*[@id=\"theme-menu-pusher\"]/div[4]/div[1]/ul/li/div/a/@href")
+        products = self.get_items(root)
 
-        for product_url in products:
-            data = self.get_detail_item(product_url, name_category)
-            print(data)
-            # break
+        self.export_csv([], "init")
+
+        for product_url, price in products:
+            data = self.get_detail_item(product_url, price, name_category)
+            self.export_csv(data)
