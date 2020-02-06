@@ -34,7 +34,7 @@ class Core:
         return content
 
     def get_html_from_xpath(self, string_xpath):
-        return etree.tostring(string_xpath, method='html', with_tail=False)
+        return etree.tostring(string_xpath, method='html', with_tail=False).decode("utf-8")
 
 
 class BeddingLegend(Core):
@@ -47,8 +47,8 @@ class BeddingLegend(Core):
         if option != "init":
             mode = 'a+'
 
-        with open('file-datas.csv', mode=mode) as data_file:
-            file_writer = csv.writer(data_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        with open('file-datas.csv', mode=mode, newline='') as data_file:
+            file_writer = csv.writer(data_file, delimiter=',', quotechar='\'', quoting=csv.QUOTE_MINIMAL)
 
             if option == "init":
                 file_writer.writerow(header)
@@ -89,18 +89,18 @@ class BeddingLegend(Core):
         return result
 
     def get_body_html(self, root):
-        html = '<h3>Description</h3>'
+        html = "<h3>Description</h3>"
         description = root.xpath("//*[@id=\"tab-description\"]")[0]
 
         description = self.get_html_from_xpath(description)
-        html = html + description
+        html = html + str(description)
 
         html = html + "<h3>Size Charts</h3>"
 
         size_chart = root.xpath("//*[@id=\"tab-size-charts\"]")[0]
         size_chart = self.get_html_from_xpath(size_chart)
 
-        html = html + size_chart
+        html = html + str(size_chart)
 
         return html
 
@@ -128,10 +128,6 @@ class BeddingLegend(Core):
         return [option1_name, option1_value]
 
     def get_detail_item(self, item_url, price, name_category):
-        results = []
-        handle = ''
-        title = ''
-        body_html = ''
         vendor = ''
         type_t = ''
         tags = name_category
